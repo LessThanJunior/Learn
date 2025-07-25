@@ -9,26 +9,29 @@
 
 class Directory;
 
-/*
-
-std::wstring parseExtension(const std::wstring& path){
-    std::wstring fileName = path;
-    int pos = fileName.find(L'.');
-    return fileName.substr(pos);
-}
-std::wstring parseFileName(const std::wstring& path){
-    std::wstring fileName = path;
-    int pos = fileName.find(L'.');
-    return fileName.substr(0, pos);
-}
-
-*/
-
-
-std::string formatBytes(int rank){
-    static const std::array<std::string, 5> ranks{"B", "KB", "MB", "GB", "TB"};
+std::wstring formatBytes(int rank){
+    static const std::array<std::wstring, 5> ranks{L"B", L"KB", L"MB", L"GB", L"TB"};
     if(rank >= 0 && rank <= 5) return ranks[rank];
-    return "";
+    return L"";
+}
+
+int getRankOfBytes(uint64_t totalBytes){
+    int rank = 0;
+
+    if (totalBytes > 0) {
+        rank = static_cast<int>(std::log(totalBytes) / std::log(1024));
+        if (rank > 4) rank = 4;
+    }
+    return rank;
+}
+
+std::wstring pathToDirectory(const std::wstring& path){
+    std::wstring searchPath = path;
+    if (!searchPath.empty() && searchPath.back() != L'\\') {
+        searchPath += L'\\';
+    }
+    searchPath += L'*';
+    return searchPath;
 }
 
 class FileSystem{
@@ -122,22 +125,21 @@ public:
 
         Directory* dir = new Directory();
         dir->setFiles(std::move(temp_files));
-        dir->filePath = path;
+
+        int pathLength = pathToDirectory(path).length() - 1;
+        dir->filePath = pathToDirectory(path).substr(0, pathLength);
         dirs.push_back(*dir);
 
         DirectoryScan(path);
     }
 
-    std::vector<File> getFiles() const {return files;}
-    std::vector<Directory> getDirectories(){return dirs;}
+    std::vector<File> getFiles() const              {return files;}
+    std::vector<Directory> getDirectories() const   {return dirs;}
+    std::wstring getFilePath() const                {return filePath;}
 
 private:
     void DirectoryScan(const std::wstring& path){
-        std::wstring searchPath = path;
-        if (!searchPath.empty() && searchPath.back() != L'\\') {
-            searchPath += L'\\';
-        }
-        searchPath += L'*'; // шаблон добавляем здесь
+        std::wstring searchPath = pathToDirectory(path);
 
         int lengthPath = searchPath.length();
         WIN32_FIND_DATAW ffd;
@@ -168,12 +170,7 @@ private:
     }
 
     std::vector<File> getFilesFromDirectory(const std::wstring& path){
-
-        std::wstring searchPath = path;
-        if (!searchPath.empty() && searchPath.back() != L'\\') {
-            searchPath += L'\\';
-        }
-        searchPath += L'*'; // шаблон добавляем здесь
+        std::wstring searchPath = pathToDirectory(path);
 
         int lengthPath = searchPath.length();
         WIN32_FIND_DATAW ffd;
@@ -205,7 +202,6 @@ private:
         FindClose(handle);
         return temp_files;
     }
-
     void setFiles(const std::vector<File>&& files){ this->files = files;}
 };
 
@@ -215,30 +211,55 @@ int wmain(int argc, wchar_t* argv[]) {
         Directory directory(wstr);
 
         auto dirs = directory.getDirectories();
-        std::wcout << dirs.size() << "\n";
+        std::wcout << 2 << "\n";
+
+        uint64_t totalBytesDirectories = 0;
+        const std::size_t size = dirs.size();
+
+        std::vector<std::pair<uint64_t, std::wstring>> pairDirectoryBytes;
+
         for(const auto& dir : dirs){
-            for(const auto& file : dir.getFiles()){
-                int rank = 0;
+            uint64_t totalBytesDirectory = 0;
+
+            for(const auto& file : dir.getFiles()){   
                 uint64_t totalBytes = file.getFileSize();
+                int rank = getRankOfBytes(totalBytes);
 
-                if (totalBytes > 0) {
-                    rank = static_cast<int>(std::log(totalBytes) / std::log(1024));
-                    if (rank > 4) rank = 4;
-                }
-                
                 double bytesFormatted = totalBytes / std::pow(1024, rank);
-                std::string byteType = formatBytes(rank);
+                std::wstring byteType = formatBytes(rank);
 
-                std::wcout  << "File: " << file.getFilePath()   << "\t"
-                            << "Size: " << std::setprecision(3) << bytesFormatted
+                std::wcout  << L"File: " << file.getFilePath()   << "\t"
+                            << L"Size: " << std::setprecision(3) << bytesFormatted
                             << std::wstring(byteType.begin(), byteType.end()) << "\n";
+                totalBytesDirectory += totalBytes;
             }
+            pairDirectoryBytes.push_back(std::pair(totalBytesDirectory, dir.getFilePath()));
+            totalBytesDirectories += totalBytesDirectory;
         }
+
+        int rankByDirectories = getRankOfBytes(totalBytesDirectories);
+        double totalBytesDirectoriesFormatted = totalBytesDirectories / std::pow(1024, rankByDirectories);
+        std::wstring byteType = formatBytes(rankByDirectories);
+
+        std::wcout  << L"Directory size with subdirectories: " << std::setprecision(3) << totalBytesDirectoriesFormatted
+                    << byteType << L"\n";
+
+        std::wcout << "\n\n";
+
+        for (const auto& [bytes, path] : pairDirectoryBytes){
+            double percent = bytes / (double)totalBytesDirectories * 100;
+            int rank = getRankOfBytes(bytes);
+            double totalBytesFormatted = bytes / std::pow(1024, rank);
+            std::wstring byteType = formatBytes(rank);
+            std::wcout  << L"Directory path: \"" << path << L"\"    "
+                        << L"Percent of total: " << percent << L"%    "
+                        << L"Size: " << totalBytesFormatted << byteType << "\n";
+        }
+        
     }
 
-    else{
+    else
         std::wcout << "usage: dirsize.exe \"your_path_to_directory\"";
-    }
 
     return 0;
 }
