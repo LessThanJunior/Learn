@@ -177,7 +177,7 @@ private:
         HANDLE handle = FindFirstFileW(searchPath.c_str(), &ffd);
         if (handle == INVALID_HANDLE_VALUE) {
             std::wcerr << L"Ошибка: не удалось открыть " << searchPath << std::endl;
-
+            throw std::wstring(L"Not found file");
         }
 
         std::vector<File> temp_files;
@@ -208,10 +208,16 @@ private:
 int wmain(int argc, wchar_t* argv[]) {
     if(argc == 2){
         std::wstring wstr = argv[1];
-        Directory directory(wstr);
+        Directory directory;
 
+        try{
+            directory = Directory(wstr);
+        } catch(std::wstring e){
+            std::wcout << e;
+            return -1; 
+        }
+        
         auto dirs = directory.getDirectories();
-        std::wcout << 2 << "\n";
 
         uint64_t totalBytesDirectories = 0;
         const std::size_t size = dirs.size();
