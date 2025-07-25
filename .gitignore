@@ -1,0 +1,8 @@
+.vscode/
+<<<<<<< HEAD
+WinAPI/.vscode/
+
+*.exe
+=======
+WinAPI/.vscode/
+>>>>>>> 5eac07e1d170afe5974e9a985bb693de807df20b
