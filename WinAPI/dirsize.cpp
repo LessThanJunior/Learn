@@ -236,5 +236,9 @@ int wmain(int argc, wchar_t* argv[]) {
         }
     }
 
+    else{
+        std::wcout << "usage: dirsize.exe \"your_path_to_directory\"";
+    }
+
     return 0;
 }
