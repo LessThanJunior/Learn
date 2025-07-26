@@ -6,6 +6,7 @@
 #include <format>
 #include <iomanip>
 #include <cstdint>
+#include <algorithm>
 
 class Directory;
 
@@ -177,7 +178,7 @@ private:
         HANDLE handle = FindFirstFileW(searchPath.c_str(), &ffd);
         if (handle == INVALID_HANDLE_VALUE) {
             std::wcerr << L"Ошибка: не удалось открыть " << searchPath << std::endl;
-            throw std::wstring(L"Not found file");
+            throw std::wstring(L"Not found file or directory");
         }
 
         std::vector<File> temp_files;
@@ -233,10 +234,11 @@ int wmain(int argc, wchar_t* argv[]) {
 
                 double bytesFormatted = totalBytes / std::pow(1024, rank);
                 std::wstring byteType = formatBytes(rank);
-
+                /*
                 std::wcout  << L"File: " << file.getFilePath()   << "\t"
                             << L"Size: " << std::setprecision(3) << bytesFormatted
                             << std::wstring(byteType.begin(), byteType.end()) << "\n";
+                */
                 totalBytesDirectory += totalBytes;
             }
             pairDirectoryBytes.push_back(std::pair(totalBytesDirectory, dir.getFilePath()));
@@ -252,13 +254,18 @@ int wmain(int argc, wchar_t* argv[]) {
 
         std::wcout << "\n\n";
 
+        std::sort(pairDirectoryBytes.begin(), pairDirectoryBytes.end(),
+                [](const std::pair<uint64_t, std::wstring>& pairFirst, const std::pair<uint64_t, std::wstring>& pairSecond){
+                    return pairFirst.first > pairSecond.first;
+                });
+
         for (const auto& [bytes, path] : pairDirectoryBytes){
             double percent = bytes / (double)totalBytesDirectories * 100;
             int rank = getRankOfBytes(bytes);
             double totalBytesFormatted = bytes / std::pow(1024, rank);
             std::wstring byteType = formatBytes(rank);
             std::wcout  << L"Directory path: \"" << path << L"\"    "
-                        << L"Percent of total: " << percent << L"%    "
+                        << L"Percent of total: " << std::fixed << std::setprecision(3) << percent << L"%    "
                         << L"Size: " << totalBytesFormatted << byteType << "\n";
         }
         
